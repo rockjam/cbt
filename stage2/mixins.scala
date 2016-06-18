@@ -33,7 +33,7 @@ trait ScalaParadise extends BaseBuild{
     super.scalacOptions
     ++ (
       if(scalaVersion.startsWith("2.10."))
-        Seq("-Xplugin:"++scalaParadiseDependency.exportedClasspath.string)
+        Seq("-Xplugin:"++scalaParadiseDependency.jar.string)
       else
         Seq()
     )
