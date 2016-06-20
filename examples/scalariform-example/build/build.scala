@@ -1,7 +1,7 @@
 import cbt._
 import scalariform.formatter.preferences._
 
-class Build(val context: Context) extends BuildBuild with Scalariform {
+class Build(val context: Context) extends BaseBuild with Scalariform {
   override def compile = {
     scalariformFormat
     super.compile
