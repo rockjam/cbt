@@ -30,7 +30,7 @@ object CatchTrappedExitCode{
 }
 
 class BaseLib{
-  def realpath(name: File) = new File(java.nio.file.Paths.get(name.getAbsolutePath).normalize.toString)
+  def realpath(name: File) = new File(Paths.get(name.getAbsolutePath).normalize.toString)
 }
 
 class Stage1Lib( val logger: Logger ) extends BaseLib{
@@ -186,7 +186,7 @@ class Stage1Lib( val logger: Logger ) extends BaseLib{
 
   def needsUpdate( sourceFiles: Seq[File], statusFile: File ) = {
     val lastCompile = statusFile.lastModified
-    sourceFiles.filter(_.lastModified > lastCompile).nonEmpty
+    sourceFiles.exists(_.lastModified > lastCompile)
   }
 
   def compile(

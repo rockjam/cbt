@@ -265,10 +265,10 @@ final class Lib(logger: Logger) extends Stage1Lib(logger) with Scaffold{
   /** Which file endings to consider being source files. */
   def sourceFileFilter(file: File): Boolean = file.toString.endsWith(".scala") || file.toString.endsWith(".java")
 
-  def sourceFiles( sources: Seq[File], sourceFileFilter: File => Boolean = sourceFileFilter ): Seq[File] = {
+  def existingFiles(files: Seq[File], fileFilter: File => Boolean = sourceFileFilter ): Seq[File] = {
     for {
-      base <- sources.filter(_.exists).map(lib.realpath)
-      file <- lib.listFilesRecursive(base) if file.isFile && sourceFileFilter(file)
+      base <- files.filter(_.exists).map(lib.realpath)
+      file <- lib.listFilesRecursive(base) if file.isFile && fileFilter(file)
     } yield file    
   }
 

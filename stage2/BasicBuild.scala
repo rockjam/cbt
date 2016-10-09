@@ -2,6 +2,7 @@ package cbt
 
 import java.io._
 import java.net._
+import java.nio.file.{ Files, StandardCopyOption }
 
 class BasicBuild(val context: Context) extends BaseBuild
 trait BaseBuild extends BuildInterface with DependencyImplementation with TriggerLoop with SbtDependencyDsl{
@@ -43,6 +44,7 @@ trait BaseBuild extends BuildInterface with DependencyImplementation with Trigge
 
   // ========== paths ==========
   final private val defaultSourceDirectory = projectDirectory ++ "/src"
+  final private val defaultResourcesDirectory = projectDirectory ++ "/resources"
 
   /** base directory where stuff should be generated */
   def target: File = projectDirectory ++ "/target"
@@ -64,15 +66,21 @@ trait BaseBuild extends BuildInterface with DependencyImplementation with Trigge
   /** Source directories and files. Defaults to .scala and .java files in src/ and top-level. */
   def sources: Seq[File] = Seq(defaultSourceDirectory) ++ projectDirectory.listFiles.toVector.filter(lib.sourceFileFilter)
 
+  /** Resources directories and files. Defaults to any files in resources/ directory. */
+  def resources: Seq[File] = Seq(defaultResourcesDirectory) //++ projectDirectory.listFiles.toVector.filter(lib.sourceFileFilter _ andThen (!_)) // it seems to be not so good idea
+
   /** Absolute path names for all individual files found in sources directly or contained in directories. */
-  final def sourceFiles: Seq[File] = lib.sourceFiles(sources)
+  final def sourceFiles: Seq[File] = lib.existingFiles(sources)
+
+  /** Absolute path names for all individual files found in sources directly or contained in directories. */
+  final def resourcesFiles: Seq[File] = lib.existingFiles(resources, _ => true)
 
   protected def logEmptySourceDirectories(): Unit = {
     val nonExisting =
       sources
         .filterNot( _.exists )
         .diff( Seq(defaultSourceDirectory) )
-    if(!nonExisting.isEmpty) logger.stage2("Some sources do not exist: \n"++nonExisting.mkString("\n"))
+    if(nonExisting.nonEmpty) logger.stage2("Some sources do not exist: \n"++nonExisting.mkString("\n"))
   }
   logEmptySourceDirectories()
 
@@ -101,7 +109,7 @@ trait BaseBuild extends BuildInterface with DependencyImplementation with Trigge
   final def compileClasspath : ClassPath =
     dependencyClasspath ++ ClassPath( compileDependencies.flatMap(_.exportedClasspath.files).distinct )
 
-  def exportedClasspath   : ClassPath = ClassPath(compile.toSeq)
+  def exportedClasspath: ClassPath = ClassPath(compile.toSeq)
   def targetClasspath = ClassPath(Seq(compileTarget))
   // ========== compile, run, test ==========
 
@@ -120,17 +128,32 @@ trait BaseBuild extends BuildInterface with DependencyImplementation with Trigge
   )
 
   private object compileCache extends Cache[Option[File]]
-  def compile: Option[File] = compileCache{
+  def compile: Option[File] = compileCache {
+    copyResources(compileTarget)
     lib.compile(
       context.cbtHasChanged,
-      needsUpdate || context.parentBuild.map(_.needsUpdate).getOrElse(false),
+      needsUpdate || context.parentBuild.exists(_.needsUpdate),
       sourceFiles, compileTarget, compileStatusFile, compileClasspath,
       context.paths.mavenCache, scalacOptions, context.classLoaderCache,
       zincVersion = zincVersion, scalaVersion = scalaVersion
     )
   }
 
-  
+  // I guess we could add method without params to use it as a task.
+  private def copyResources(target: File): ExitCode = {
+    val targetPath = target.toPath
+    if(resourcesFiles.nonEmpty) {
+      System.err.println(lib.blue(s"Copying resources to ${target.toString}"))
+    }
+    if(!Files.exists(targetPath)) {
+      Files.createDirectories(targetPath)
+    }
+    resourcesFiles foreach { res =>
+      Files.copy( res.toPath, targetPath.resolve(res.getName), StandardCopyOption.REPLACE_EXISTING )
+    }
+    ExitCode.Success
+  }
+
   def mainClasses: Seq[Class[_]] = compile.toSeq.flatMap( lib.mainClasses( _, classLoader(classLoaderCache) ) )
 
   def runClass: Option[String] = lib.runClass( mainClasses ).map( _.getName )

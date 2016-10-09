@@ -6,8 +6,8 @@ require creating an instance for each thing you want to cache?
 */
 class Cache[T]{
   private var value: Option[T] = None
-  def apply(value: => T) = this.synchronized{
-    if(!this.value.isDefined)
+  def apply(value: => T): T = this.synchronized{
+    if(this.value.isEmpty)
       this.value = Some(value)
     this.value.get
   }
